@@ -1,5 +1,6 @@
 import math
 from random import randint
+import random
 import matplotlib.pyplot as plt
 
 FORCE_MAG = 10
@@ -20,6 +21,8 @@ NUM_THETA_DOT_BOXES = 3
 NUM_ACTIONS  = 2
 
 GAMMA = .8
+ALPHA = .8
+EXPERIMENT = False
 
 class SimulationState:
     def __init__(self):
@@ -135,17 +138,18 @@ def get_state_reward(x_dot, theta, theta_dot):
         reward += 3
     else:
         reward -= 3
-    # Reward based on x_dot
-    if (-1 < x_dot and x_dot < 1):
-        reward += 3
-    elif (-2 < x_dot and x_dot < 2):
-        reward += 1
-    elif (-3 < x_dot and x_dot < 3):
-        reward -= 1
-    elif (-4 < x_dot and x_dot < 4):
-        reward -= 3
-    else:
-        reward -= 5
+    if (EXPERIMENT == False):
+        # Reward based on x_dot
+        if (-1 < x_dot and x_dot < 1):
+            reward += 3
+        elif (-2 < x_dot and x_dot < 2):
+            reward += 1
+        elif (-3 < x_dot and x_dot < 3):
+            reward -= 1
+        elif (-4 < x_dot and x_dot < 4):
+            reward -= 3
+        else:
+            reward -= 5
     # Reward based on theta
     if (-1 <= theta and theta <= 1):
         reward += 7
@@ -166,7 +170,8 @@ def update_q_table(q, currentState, futureState, action):
     x_dot_index = get_x_dot_index(currentState.x_dot)
     theta_index = get_theta_index(currentState.theta)
     theta_dot_index = get_theta_dot_index(currentState.theta_dot)
-    q[x_index][x_dot_index][theta_index][theta_dot_index][action] = get_state_reward(currentState.x_dot, currentState.theta, currentState.theta_dot) + GAMMA * q_max(q, futureState)
+    current_q_value = q[x_index][x_dot_index][theta_index][theta_dot_index][action]
+    q[x_index][x_dot_index][theta_index][theta_dot_index][action] += ALPHA * (get_state_reward(currentState.x_dot, currentState.theta, currentState.theta_dot) + GAMMA * q_max(q, futureState) - current_q_value)
     return q
 
 def print_state(state, action):
@@ -178,6 +183,7 @@ def print_state(state, action):
     print(output, "\n")
 
 def fill_q_table(q):
+    random.seed(6)
     for x in range(NUM_X_BOXES):
         q.append([])
         for x_dot in range(NUM_X_DOT_BOXES):
@@ -194,7 +200,7 @@ def runSimulation(q):
     currentState = SimulationState()
     pastState = SimulationState()
     steps = 0
-    while (42 > currentState.theta and currentState.theta > -42):
+    while (42 > currentState.theta and currentState.theta > -42 and steps < 1000):
         action = arg_max(q, currentState)
 
         pastState.x = currentState.x
@@ -207,25 +213,44 @@ def runSimulation(q):
         steps += 1
     return steps
 
-def graphAttempts(attempts):
-    plt.plot(attempts)
+def graphAttempts(controlAttempts, experimentAttempts):
+    plt.plot(controlAttempts, 'green', label='Control')
+    plt.plot(experimentAttempts, 'blue', label='Experiment')
     plt.title("Cart_Pole Attempts")
     plt.ylabel("Steps Balanced")
     plt.xlabel("Attempt Number")
     plt.legend()
     plt.show()
 
-def main():
+def runExperiment(numAttempts):
     q = []
     q = fill_q_table(q)
     attempt = 0
     steps = 0
-    attemptsRecord = []
-    while(attempt < 100):
+    recordedAttempts = []
+    while(attempt < numAttempts):
         steps = runSimulation(q)
-        attemptsRecord.append(steps)
+        recordedAttempts.append(steps)
         print("Attempt: ", attempt, "     Steps: ", steps)
         attempt += 1
-    graphAttempts(attemptsRecord)
+    return recordedAttempts
+
+
+def main():
+    global ALPHA
+    global EXPERIMENT
+    numAttempts = 100
+    attemptsRecordControl = []
+    attemptsRecordExperiment = []
+
+    # ALPHA = .8
+    EXPERIMENT = False
+    attemptsRecordControl = runExperiment(numAttempts)
+
+    # ALPHA = .95
+    EXPERIMENT = True
+    attemptsRecordExperiment = runExperiment(numAttempts)
+
+    graphAttempts(attemptsRecordControl, attemptsRecordExperiment)
 
 main()
